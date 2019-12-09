@@ -6,4 +6,4 @@ describe('Scope', function () {
         scope.aProperty = 1;
         expect(scope.aProperty).toBe(1);
     });
-}); 
+});  
