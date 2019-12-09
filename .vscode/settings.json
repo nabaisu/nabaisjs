@@ -1,0 +1,4 @@
+{
+    "eslint.enable": false,
+    "github.remoteName": "https://github.com/nabaisu/nabaisjs.git"
+}
