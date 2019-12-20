@@ -24,6 +24,6 @@ describe('Scope', function() {
             scope.ãdigest();
 
             expect(listenerFn).toHaveBeenCalled();
-        })
-    })
+        });
+    });
 });
