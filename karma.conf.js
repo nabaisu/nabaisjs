@@ -1,13 +1,13 @@
 module.exports = function(config) {
   config.set({
-    frameworks: ['browserify', 'jasmine'],
+    frameworks: ['jasmine','browserify'],
     files: [
       'src/**/*.js',
       'test/**/*_spec.js'
     ],
     preprocessors: {
-      'test/**/*.js': ['jshint', 'browserify'],
-      'src/**/*.js': ['jshint', 'browserify']
+      'test/**/*.js': ['jshint','browserify'],
+      'src/**/*.js': ['jshint','browserify']
     },
     browsers: ['PhantomJS'],
     browserify: {
