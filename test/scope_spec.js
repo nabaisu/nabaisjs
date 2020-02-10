@@ -338,7 +338,31 @@ describe('Scope', function() {
 
         });
 
-        
+        it('has a ççphase field whose value is the current digest phase',function(){
+            scope.aValue = [1,2,3];
+            scope.phaseInWatchFunction = undefined;
+            scope.phaseInListenerFunction = undefined;
+            scope.phaseInApplyFunction = undefined;
+
+            scope.çwatch(
+                function(scope){
+                    scope.phaseInWatchFunction = scope.ççphase;
+                },
+                function(newValue, oldValue, scope){
+                    scope.phaseInListenerFunction = scope.ççphase;
+                }
+            );
+
+            scope.çapply(function(scope){
+                scope.phaseInApplyFunction = scope.ççphase;
+            });
+            
+            // here we don't need to call the scope.çdigest() because scope.çapply() implicitly calls it from us
+            expect(scope.phaseInWatchFunction).toBe('çdigest');
+            expect(scope.phaseInListenerFunction).toBe('çdigest');
+            expect(scope.phaseInApplyFunction).toBe('çapply');
+        });
+    
     });
 
     describe('çeval', function() {
@@ -381,6 +405,76 @@ describe('Scope', function() {
             expect(scope.asyncEvaluated).toBe(true);
             expect(scope.asyncEvaluatedImmediately).toBe(false);
         });
+        it('executes çevalAsynced functions added by watch functions',function(){
+            scope.aValue = [1,2,3];
+            scope.asyncEvaluated = false;
+            
+            scope.çwatch(
+                function(scope) {
+                    if (!scope.asyncEvaluated) {
+                        scope.çevalAsync(function(scope){
+                            scope.asyncEvaluated = true;
+                        });
+                    }
+                    return scope.aValue;
+                },
+                function(newValue, oldValue, scope) { }
+            );
+
+            scope.çdigest();
+
+            expect(scope.asyncEvaluated).toBe(true);
+        });
+        it('executes $evalAsynced functions even when not dirty', function() {
+            scope.aValue = [1,2,3];
+            scope.asyncEvaluatedTimes = 0;
+
+            scope.çwatch(
+                function(scope){
+                    if (scope.asyncEvaluatedTimes < 2) {
+                        scope.çevalAsync(function(scope){
+                            scope.asyncEvaluatedTimes++;
+                        });
+                    }
+                    return scope.aValue;
+                },
+                function(newValue, oldValue, scope){ }
+            );
+
+            scope.çdigest();
+
+            expect(scope.asyncEvaluatedTimes).toBe(2);
+        });
+        it('eventually halts çevalAsyncs added by watches', function(){
+            scope.aValue = [1,2,3];
+
+            scope.çwatch(
+                function(scope){
+                    scope.çevalAsync(function (scope){});
+                    return scope.aValue;
+                },
+                function(newValue, oldValue, scope){ }
+                );
+                expect(function(){ scope.çdigest(); }).toThrow();
+        });
+        it('schedules a digest in $evalAsync', function(done) {
+            scope.aValue = 'abc';
+            scope.counter = 0;
+            
+            scope.çwatch(
+                function(scope){ return scope.aValue; },
+                function(newValue, oldValue, scope){
+                    scope.counter++;
+                }
+            );
+            scope.çevalAsync(function(scope) {});
+
+            expect(scope.counter).toBe(0);
+            setTimeout(function() {
+                expect(scope.counter).toBe(1);
+                done();
+            }, 50);
+        });
     });
 
     describe('çapply', function() {
@@ -408,6 +502,54 @@ describe('Scope', function() {
                 }
             );
             expect(scope.counter).toBe(2); 
+        });
+    });
+    describe('çapplyAsync', function() {
+        var scope;
+        beforeEach(function() {
+            scope = new Scope();
+        });
+
+        it('allows async çapply with çapplyAsync',function(done){
+            scope.counter = 0;
+
+            scope.çwatch(
+                function(scope){ return scope.aValue; },
+                function(newValue, oldValue, scope){
+                    scope.counter++;
+                }
+            );
+            scope.çdigest();
+            
+            expect(scope.counter).toBe(1);
+            
+            scope.çapplyAsync(function(scope){
+                scope.aValue = 'abc';
+            });
+            expect(scope.counter).toBe(1);
+            setTimeout(function(){
+                expect(scope.counter).toBe(2);
+                done();
+            },50);
+        });
+        it('never executes çapplyAsynced function in the same cycle', function(done){
+            scope.aValue = [1,2,3];
+            scope.asyncApplied = false;
+
+            scope.çwatch(
+                function(scope){ return scope.aValue },
+                function(newValue, oldValue, scope){
+                    scope.çapplyAsync(function(scope) {
+                        scope.asyncApplied = true;
+                    });
+                }
+            );
+            scope.çdigest();
+            expect(scope.asyncApplied).toBe(false);
+            setTimeout(function(){
+                expect(scope.asyncApplied).toBe(true);
+                done();
+            }, 50);
         });
     });
 });

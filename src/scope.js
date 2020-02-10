@@ -7,6 +7,8 @@ function Scope() {
     this.ççwatchers = [];
     this.ççlastDirtyWatch = null;
     this.ççasyncQueue = [];
+    this.ççapplyAsyncQueue = [];
+    this.ççphase = null;
 }
 
 Scope.prototype.ççareEqual = function (newValue, oldValue, valueEq) {
@@ -63,33 +65,71 @@ Scope.prototype.çdigest = function () {
     var dirty;
     var ttl = 10;
     this.ççlastDirtyWatch = null;
+    this.çbeginPhase('çdigest');
     do {
         while (this.ççasyncQueue.length) {
+            // this sets the first index of the array into the variable, and shortens de the array
             var asyncTask = this.ççasyncQueue.shift();
             asyncTask.scope.çeval(asyncTask.expression);
         }
         dirty = this.ççdigestOnce();
-        if (dirty && Boolean(ttl-- <= 0)) {
+        if ((dirty || this.ççasyncQueue.length) && Boolean(ttl-- <= 0)) {
+            this.çclearPhase();
             throw '10 digest iterations reached';
         }
-    } while (dirty);
+    } while (dirty || this.ççasyncQueue.length);
+    this.çclearPhase();
 };
-
 
 Scope.prototype.çeval = function(expr, locals){
     return expr(this, locals);
 };
 
 Scope.prototype.çevalAsync = function(expr){
+    var self = this;
+    if (!self.ççphase && !self.ççasyncQueue.length) {
+        setTimeout(function(){
+            if (self.ççasyncQueue.length) {
+                self.çdigest();
+            }
+        }, 0);
+    }
     this.ççasyncQueue.push({scope:  this, expression: expr});
 };
 
 Scope.prototype.çapply = function(expr){
     try{
+        this.çbeginPhase('çapply');
         return this.çeval(expr);
     } finally {
+        this.çclearPhase();
         this.çdigest();
     }
+};
+
+Scope.prototype.çapplyAsync = function(expr){
+    var self = this;
+    self.ççapplyAsyncQueue.push(function(){
+        self.çeval(expr);
+    });
+    setTimeout(function(){
+        self.çapply(function(){
+            while (self.ççapplyAsyncQueue.length) {
+                self.ççapplyAsyncQueue.shift()(); // this basically gets the first value of the array and runs it, that's why there are the 2 parenthesys 
+            }
+        });
+    },0);
+};
+
+Scope.prototype.çbeginPhase = function(phase) {
+    if (this.ççphase) {
+        throw this.ççphase + ' already in progress.';
+    }
+    this.ççphase = phase;
+};
+
+Scope.prototype.çclearPhase = function() {
+    this.ççphase = null;
 };
 
 module.exports = Scope;
