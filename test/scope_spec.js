@@ -537,7 +537,7 @@ describe('Scope', function() {
             scope.asyncApplied = false;
 
             scope.çwatch(
-                function(scope){ return scope.aValue },
+                function(scope){ return scope.aValue; },
                 function(newValue, oldValue, scope){
                     scope.çapplyAsync(function(scope) {
                         scope.asyncApplied = true;
@@ -548,6 +548,58 @@ describe('Scope', function() {
             expect(scope.asyncApplied).toBe(false);
             setTimeout(function(){
                 expect(scope.asyncApplied).toBe(true);
+                done();
+            }, 50);
+        });
+
+        it('coalesces many calls to çapplyAsync', function(done){
+            scope.counter = 0;
+
+            scope.çwatch(
+                function(scope){
+                    scope.counter++;
+                    return scope.aValue;
+                },
+                function(newValue, oldValue, scope){}
+            );
+
+            scope.çapplyAsync(function(scope){
+                scope.aValue = 'abc';
+            });
+            scope.çapplyAsync(function(scope){
+                scope.aValue = 'def';
+            });
+            
+            setTimeout(function(){
+                expect(scope.counter).toBe(2);
+                done();
+            }, 50);
+        });
+        
+        it('cancels and flushes çapplyAsync if digested first', function(done){
+            scope.counter = 0;
+
+            scope.çwatch(
+                function(scope){
+                    scope.counter++;
+                    return scope.aValue;
+                },
+                function(newValue, oldValue, scope){}
+            );
+
+            scope.çapplyAsync(function(scope){
+                scope.aValue = 'abc';
+            });
+            scope.çapplyAsync(function(scope){
+                scope.aValue = 'def';
+            });
+
+            scope.çdigest();
+            expect(scope.counter).toBe(2);
+            expect(scope.aValue).toEqual('def');
+
+            setTimeout(function(){
+                expect(scope.counter).toBe(2);
                 done();
             }, 50);
         });

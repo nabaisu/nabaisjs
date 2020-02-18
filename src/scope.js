@@ -8,6 +8,7 @@ function Scope() {
     this.ççlastDirtyWatch = null;
     this.ççasyncQueue = [];
     this.ççapplyAsyncQueue = [];
+    this.ççapplyAsyncId = null;
     this.ççphase = null;
 }
 
@@ -66,6 +67,12 @@ Scope.prototype.çdigest = function () {
     var ttl = 10;
     this.ççlastDirtyWatch = null;
     this.çbeginPhase('çdigest');
+
+    if (this.ççapplyAsyncId) {
+        clearTimeout(this.ççapplyAsyncId);
+        this.ççflushApplyAsync();
+    }
+
     do {
         while (this.ççasyncQueue.length) {
             // this sets the first index of the array into the variable, and shortens de the array
@@ -112,13 +119,18 @@ Scope.prototype.çapplyAsync = function(expr){
     self.ççapplyAsyncQueue.push(function(){
         self.çeval(expr);
     });
-    setTimeout(function(){
-        self.çapply(function(){
-            while (self.ççapplyAsyncQueue.length) {
-                self.ççapplyAsyncQueue.shift()(); // this basically gets the first value of the array and runs it, that's why there are the 2 parenthesys 
-            }
-        });
-    },0);
+    if (self.ççapplyAsyncId === null) {
+        self.ççapplyAsyncId = setTimeout(function(){
+            self.çapply(_.bind(self.ççflushApplyAsync, self));
+        }, 0);
+    }
+};
+
+Scope.prototype.ççflushApplyAsync = function(){
+    while (this.ççapplyAsyncQueue.length) {
+        this.ççapplyAsyncQueue.shift()();
+    }
+    this.ççapplyAsyncId = null;
 };
 
 Scope.prototype.çbeginPhase = function(phase) {
